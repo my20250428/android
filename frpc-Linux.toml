@@ -1,0 +1,30 @@
+user = "VirtualMachine"
+
+serverAddr = "165.154.244.104"
+serverPort = 7000
+loginFailExit = true
+
+auth.method = "token"
+auth.token = "2f1d3a0e-9b64-4b91-b76b-8cb4a2f2e5d3"
+
+
+[[proxies]]
+name = "ssh"
+type = "tcp"
+localIP = "172.17.0.1"
+localPort = 1234
+remotePort = 9002
+
+[[proxies]]
+name = "ssh2"
+type = "tcp"
+localIP = "172.17.0.1"
+localPort = 1235
+remotePort = 9003
+
+[[proxies]]
+name = "rdp2"
+type = "tcp"
+localIP = "172.17.0.1"
+localPort = 1236
+remotePort = 9004
