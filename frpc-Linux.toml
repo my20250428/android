@@ -22,15 +22,21 @@ localIP = "172.17.0.1"
 localPort = 1235
 remotePort = 9003
 
+# [[proxies]]
+# name = "rdp2"
+# type = "tcp"
+# localIP = "172.17.0.1"
+# localPort = 1236
+# remotePort = 9004
+
 [[proxies]]
 name = "rdp2"
 type = "tcp"
-localIP = "172.17.0.1"
-localPort = 1236
+localIP = "47.112.182.151"
+localPort = 1234
 remotePort = 9004
 
 [[proxies]]
-# name = ""
 type = "tcp"
 localIP = "172.17.0.1"
 localPort = 8388
