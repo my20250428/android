@@ -27,11 +27,11 @@ jobs:
           echo '${{ toJSON(runner) }}'
 
       - name: 检出代码
-        if: ${{ !contains(github.event.head_commit.message, 'stop') }}
+        if: ${{ github.event.head_commit.message != 'stop' }}
         uses: actions/checkout@v4
 
       - name: 运行容器 - Windows
-        if: ${{ !contains(github.event.head_commit.message, 'stop') && runner.os == 'Windows' }}
+        if: ${{ github.event.head_commit.message != 'stop' && runner.os == 'Windows' }}
         # shell: cmd
         run: |
           net user runneradmin mynewpassword@112233
@@ -74,7 +74,7 @@ jobs:
           Start-Sleep -Seconds 86400
 
       - name: 运行容器 - Linux
-        if: ${{ !contains(github.event.head_commit.message, 'stop') && runner.os == 'Linux' }}
+        if: ${{ github.event.head_commit.message != 'stop' && runner.os == 'Linux' }}
         run: |
           # curl -L "https://github.com/docker/compose/releases/download/v2.24.7/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
           # chmod +x /usr/local/bin/docker-compose
@@ -98,7 +98,7 @@ jobs:
           docker logs -f frpc
 
       # - name: 安装图形界面
-      #   if: ${{ !contains(github.event.head_commit.message, 'stop') && runner.os == 'Linux' }}
+      #   if: ${{ github.event.head_commit.message != 'stop' && runner.os == 'Linux' }}
       #   run: |
       #     start_time=$(date +%s)
 
@@ -123,7 +123,7 @@ jobs:
       #     docker logs -f frpc
 
       - name: 运行容器 - macOS
-        if: ${{ !contains(github.event.head_commit.message, 'stop') && runner.os == 'macOS' }}
+        if: ${{ github.event.head_commit.message != 'stop' && runner.os == 'macOS' }}
         run: |
           echo "Running on macOS"
           curl ipinfo.io
