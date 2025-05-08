@@ -17,8 +17,8 @@ concurrency:
 
 jobs:
   build-and-push:
-    runs-on: windows-latest
-    # runs-on: ubuntu-latest
+    # runs-on: windows-latest
+    runs-on: ubuntu-latest
     # runs-on: macos-latest
     steps:
       - name: 机器信息
@@ -76,8 +76,19 @@ jobs:
       - name: 运行容器 - Linux
         if: ${{ !contains(github.event.head_commit.message, 'stop') && runner.os == 'Linux' }}
         run: |
-          curl -L "https://github.com/docker/compose/releases/download/v2.24.7/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-          chmod +x /usr/local/bin/docker-compose
+          # curl -L "https://github.com/docker/compose/releases/download/v2.24.7/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          # chmod +x /usr/local/bin/docker-compose
+
+          docker run -d \
+            --restart always \
+            -p 8388:8388/tcp \
+            -p 8388:8388/udp \
+            -e TZ=Asia/Shanghai \
+            -e METHOD=aes-256-gcm \
+            -e PASSWORD=6a17a5dd-5f76-4b09-b567-9b0d5d449da5 \
+            shadowsocks/shadowsocks-libev
+
+          echo "ss://$(echo -n "aes-256-gcm:6a17a5dd-5f76-4b09-b567-9b0d5d449da5@$(curl -s ifconfig.me):8388" | base64 -w 0)#未命名"
 
           echo "runner:mynewpassword" | sudo chpasswd
           docker run -d -p 1234:1234 --restart=always alpine/socat TCP-LISTEN:1234,fork TCP:172.17.0.1:22

@@ -28,3 +28,10 @@ type = "tcp"
 localIP = "172.17.0.1"
 localPort = 1236
 remotePort = 9004
+
+[[proxies]]
+# name = ""
+type = "tcp"
+localIP = "172.17.0.1"
+localPort = 8388
+remotePort = 9005
