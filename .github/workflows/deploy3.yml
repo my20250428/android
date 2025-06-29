@@ -4,7 +4,7 @@ on:
       os:
         description: '系统'
         required: true
-        default: 'ubuntu-latest'
+        default: 'windows-latest'
         type: choice
         options:
           - windows-latest
@@ -14,7 +14,7 @@ on:
       port:
         description: '端口'
         required: true
-        default: '9000'
+        default: '9003'
         type: string
 
 concurrency:
