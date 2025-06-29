@@ -54,19 +54,24 @@ jobs:
           remotePort = 8866
 
           [[proxies]]
-          name = "ss"
-          type = "tcp"
-          localIP = "${{ runner.os == 'Windows' && '127.0.0.1' || '172.17.0.1' }}"
-          localPort = 8388
-          remotePort = 8388
-
-          [[proxies]]
           name = "rdp${{ inputs.port }}"
           type = "tcp"
           localIP = "${{ runner.os == 'Windows' && '127.0.0.1' || '172.17.0.1' }}"
           localPort = 1234
           remotePort = ${{ inputs.port }}
+          
           EOF
+
+          if [[ "$RUNNER_OS" != "Windows" ]]; then
+          cat << EOF >> frpc.toml
+          [[proxies]]
+          name = "ss"
+          type = "tcp"
+          localIP = "172.17.0.1"
+          localPort = 8388
+          remotePort = 8388
+          EOF
+          fi
 
       - name: 运行Windows
         if: ${{ runner.os == 'Windows' }}
